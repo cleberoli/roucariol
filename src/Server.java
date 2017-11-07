@@ -28,7 +28,7 @@ public class Server {
                 String[] request = requestLine.split(",");
 
                 if (request[0].startsWith("Print")) {
-                    System.out.println(request[1]);
+                    System.out.println(request[1] + "," + request[2]);
                 }
 
                 br.close();

@@ -49,7 +49,7 @@ public class Node {
                     if (cont == 10) this.cancel();
                     Socket socket = new Socket(SERVER, PORT);
                     PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                    out.println("Print," + Node.this.ip);
+                    out.println("Print," + Node.this.ip + "," + (cont - 1));
                     out.close();
                     socket.close();
                     release();
@@ -57,7 +57,7 @@ public class Node {
                     e.printStackTrace();
                 }
             }
-        }, 10, 1000);
+        }, 0, 500);
 
     }
 
@@ -79,6 +79,20 @@ public class Node {
 
         neighbors.stream().filter(neighbor -> (!neighbor.isAccess())).forEach(neighbor -> sendRequest(osn, neighbor.getIp()));
 
+        boolean responses = false;
+        boolean ok = true;
+
+        while (!responses) {
+            for (Neighbor neighbor: neighbors) {
+                if (!neighbor.isOk()) {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if (ok) responses = true;
+        }
+
         waiting = false;
         using = true;
 
@@ -90,29 +104,32 @@ public class Node {
         neighbors.stream().forEach(neighbor -> System.out.println(neighbor.getIp()));
     }
 
-    private void reply(int theirSeqNum, Neighbor neighbor) {
+    private void reply(int seq, Neighbor neighbor) {
+        hsn = Math.max(hsn, seq);
 
-        boolean ourPriority;
-        hsn = Math.max(hsn, theirSeqNum);
-        ourPriority = (theirSeqNum > osn) || ((theirSeqNum == osn));
-
-        if (using || (waiting && ourPriority)) {
-            neighbor.setReply(true);
-        }
-
-        if (!(using || waiting) || (waiting && (!neighbor.isAccess()) && (!ourPriority))) {
+        if (!using || !waiting) {
             if (neighbor != null) {
                 neighbor.setAccess(false);
+                neighbor.setOk(true);
                 sendReply(neighbor);
             }
         }
 
-        if (waiting && neighbor.isAccess() && (!ourPriority)) {
-            neighbor.setAccess(false);
-            sendReply(neighbor);
-            sendRequest(osn, ip);
+        if (using) {
+            neighbor.setReply(true);
         }
 
+        if (waiting) {
+            if (osn < seq) {
+                if (neighbor != null) {
+                    neighbor.setAccess(false);
+                    neighbor.setOk(true);
+                    sendReply(neighbor);
+                }
+            } else {
+                neighbor.setReply(true);
+            }
+        }
     }
 
     private void response(Neighbor neighbor) {
@@ -176,6 +193,7 @@ public class Node {
 
                 if (request[0].startsWith("Ok")) {
                     response(getNeighborFromIp(request[1]));
+                    getNeighborFromIp(request[1]).setOk(true);
                 } else if (request[0].startsWith("Join")) {
                     sendMessage("Joid," + this.ip, request[1], false);
                     Neighbor neighbor = new Neighbor(request[1]);

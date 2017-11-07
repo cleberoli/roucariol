@@ -2,11 +2,13 @@ public class Neighbor {
     private String ip;
     private boolean access;
     private boolean reply;
+    private boolean ok;
 
     public Neighbor(String ip) {
         this.ip = ip;
         this.access = false;
         this.reply = false;
+        this.ok = false;
     }
 
     public String getIp() {
@@ -31,5 +33,13 @@ public class Neighbor {
 
     public void setReply(boolean reply) {
         this.reply = reply;
+    }
+
+    public boolean isOk() {
+        return ok;
+    }
+
+    public void setOk(boolean ok) {
+        this.ok = ok;
     }
 }
