@@ -2,7 +2,6 @@ public class Neighbor {
     private String ip;
     private boolean access;
     private boolean reply;
-    private boolean ok;
 
     public Neighbor(String ip) {
         this.ip = ip;

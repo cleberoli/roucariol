@@ -3,7 +3,7 @@ import java.net.InetAddress;
 import java.rmi.RemoteException;
 import java.rmi.server.ServerNotActiveException;
 import java.util.Random;
-import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 public class Client {
 
@@ -23,23 +23,20 @@ public class Client {
         }
 
         while (true) {
-            Scanner keyboard = new Scanner(System.in);
-            System.out.println("Aperte enter para sortear um número, 'E' para sair");
-            node.printAllHosts();
-            String text = keyboard.nextLine();
+            Random random = new Random();
+            double number = random.nextDouble();
 
-            if (text.startsWith("E") || text.startsWith("e")) {
-                assert node != null;
-                node.cancel();
-                break;
-            } else {
-                Random random = new Random();
-                double number = random.nextDouble();
-                System.out.println("Numero sorteado: " + number);
+            if (number > 0.5 && node != null) {
+                System.out.println("Host " + ip + " with number  " + String.format("%.5f", number) + " wants to access the printer");
+                if (node.request()) node.print();
+            }
+            else
+                System.out.println("Host " + ip + " with number  " + String.format("%.5f", number) + " doesn't want to access the printer");
 
-                if (number >= 0.5 && node != null) {
-                    if (node.request()) node.print();
-                }
+            try {
+                TimeUnit.SECONDS.sleep(5);
+                node.printAllHosts();
+            } catch (InterruptedException ignored) {
             }
         }
     }
@@ -50,7 +47,7 @@ public class Client {
 
             if (!ip.equals(host)) {
 
-                System.out.println("Trying to reach host: " + host);
+                System.out.println("Host " + ip + " is trying to reach host " + host);
 
                 try {
                     if (InetAddress.getByName(host).isReachable(TIMEOUT)) {
@@ -65,5 +62,4 @@ public class Client {
     private static String subnet(String ip) {
         return ip.substring(0, ip.lastIndexOf("."));
     }
-
 }

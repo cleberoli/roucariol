@@ -5,19 +5,16 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.rmi.RemoteException;
 import java.rmi.server.ServerNotActiveException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 
 public class Node {
     private static final int PORT = 1024;
     private static final int TIMEOUT = 1000;
-    private static final String SERVER = "10.2.5.4";
+    private static final String SERVER = "10.2.7.7";
 
     private String ip;
     private ServerSocket server;
-    private List<Neighbor> neighbors;
+    private Hashtable<String, Neighbor> neighbors;
 
     private int osn = 0;
     private int hsn = 0;
@@ -25,23 +22,22 @@ public class Node {
     private boolean waiting;
     private boolean using;
 
-    Node(String ip) throws RemoteException, ServerNotActiveException {
+    public Node(String ip) throws RemoteException, ServerNotActiveException {
         super();
         this.ip = ip;
-        neighbors = new ArrayList<>();
+        neighbors = new Hashtable<>();
         new Thread(this::startClient).start();
     }
 
-    void join(String ip) {
-        System.out.println("Trying to connect to host: " + ip);
-        sendMessage("Join," + this.ip, ip, true);
+    public void join(String ip) {
+        sendMessage("join," + this.ip, ip, true);
     }
 
-    void print() {
+    public void print() {
         try {
             Socket socket = new Socket(SERVER, PORT);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println("Print," + Node.this.ip);
+            out.println("print," + Node.this.ip);
             out.close();
             socket.close();
             release();
@@ -50,23 +46,11 @@ public class Node {
         }
     }
 
-    void cancel() {
-        try {
-            server.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void addNeighbor(Neighbor neighbor) throws RemoteException {
-        neighbors.add(neighbor);
-    }
-
-    boolean request() {
+    public boolean request() {
         waiting = true;
         osn = hsn + 1;
 
-        neighbors.stream().filter(neighbor -> (!neighbor.isAccess())).forEach(neighbor -> sendRequest(osn, neighbor.getIp()));
+        neighbors.values().stream().filter(neighbor -> (!neighbor.isAccess())).forEach(neighbor -> sendRequest(osn, neighbor.getIp()));
 
         waiting = false;
         using = true;
@@ -74,9 +58,13 @@ public class Node {
         return true;
     }
 
-    void printAllHosts() {
-        System.out.println("Printing neighbors");
-        neighbors.stream().forEach(neighbor -> System.out.println(neighbor.getIp()));
+    public void printAllHosts() {
+        System.out.println("Neighbors: " + neighbors.keySet());
+    }
+
+    private void addNeighbor(Neighbor neighbor) throws RemoteException {
+        if (!neighbors.contains(neighbor.getIp()))
+            neighbors.put(neighbor.getIp(), neighbor);
     }
 
     private void reply(int seq, Neighbor neighbor) {
@@ -109,11 +97,11 @@ public class Node {
     private void release() {
         using = false;
 
-        neighbors.stream().filter(Neighbor::isReply).forEach(this::sendReply);
+        neighbors.values().stream().filter(Neighbor::isReply).forEach(this::sendReply);
     }
 
     private void sendReply(Neighbor neighbor) {
-        sendMessage("Ok," + this.ip, neighbor.getIp(), false);
+        sendMessage("ok," + this.ip, neighbor.getIp(), false);
     }
 
     private void sendRequest(int osn, String ip) {
@@ -139,43 +127,43 @@ public class Node {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     private void startClient() {
         try {
-            // Establish the listen socket.
             server = new ServerSocket(PORT);
 
             while (true) {
-                // Listen for a TCP connection request.
                 if (server.isClosed()) break;
 
                 Socket connection = server.accept();
+                InputStream inputStream = connection.getInputStream();
+                BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
 
-                InputStream is = connection.getInputStream();
-                BufferedReader br = new BufferedReader(new InputStreamReader(is));
-
-                // Get the request line of the HTTP request message.
                 String requestLine = br.readLine();
-
                 String[] request = requestLine.split(",");
+                String method = request[0].trim();
+                Neighbor neighbor;
 
-                if (request[0].startsWith("Ok")) {
-                    response(getNeighborFromIp(request[1]));
-                    getNeighborFromIp(request[1]).setOk(true);
-                } else if (request[0].startsWith("Join")) {
-                    sendMessage("Joid," + this.ip, request[1], false);
-                    Neighbor neighbor = new Neighbor(request[1]);
-                    System.out.println(requestLine);
-                    addNeighbor(neighbor);
-                } else if (request[0].startsWith("Print")) {
-                    System.out.println(request[1]);
-                } else if (request[0].startsWith("Joid")) {
-                    Neighbor neighbor = new Neighbor(request[1]);
-                    addNeighbor(neighbor);
-                } else {
-                    reply(Integer.parseInt(request[0]), getNeighborFromIp(request[1]));
+                switch (method) {
+                    case "ok":
+                        response(neighbors.get(request[1]));
+                        break;
+                    case "join":
+                        sendMessage("joined," + this.ip, request[1], false);
+                        neighbor = new Neighbor(request[1]);
+                        addNeighbor(neighbor);
+                        break;
+                    case "joined":
+                        neighbor = new Neighbor(request[1]);
+                        addNeighbor(neighbor);
+                        break;
+                    case "print":
+                        System.out.println(request[1]);
+                        break;
+                    default:
+                        reply(Integer.parseInt(request[0]), neighbors.get(request[1]));
+                        break;
                 }
 
                 br.close();
@@ -185,17 +173,5 @@ public class Node {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private Neighbor getNeighborFromIp(String ip) {
-        Neighbor neighbor = null;
-        for (Neighbor n : neighbors) {
-            if (n.getIp().equals(ip)) {
-                neighbor = n;
-                break;
-            }
-        }
-
-        return neighbor;
     }
 }
