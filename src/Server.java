@@ -3,6 +3,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.TimeUnit;
 
 
 public class Server {
@@ -28,7 +29,10 @@ public class Server {
                 String[] request = requestLine.split(",");
 
                 if (request[0].startsWith("Print")) {
-                    System.out.println(request[1] + "," + request[2]);
+                    for (int i = 1; i <= 10; i++) {
+                        System.out.println(request[1] + "," + i);
+                        TimeUnit.MILLISECONDS.sleep(500);
+                    }
                 }
 
                 br.close();

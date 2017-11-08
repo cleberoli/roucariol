@@ -13,7 +13,7 @@ import java.util.TimerTask;
 public class Node {
     private static final int PORT = 1024;
     private static final int TIMEOUT = 1000;
-    private static final String SERVER = "10.2.7.14";
+    private static final String SERVER = "10.2.5.4";
 
     private String ip;
     private ServerSocket server;
@@ -38,27 +38,16 @@ public class Node {
     }
 
     void print() {
-        new Timer().schedule(new TimerTask() {
-            int cont = 1;
-
-            @Override
-            public void run() {
-                try {
-                    cont++;
-                    osn++;
-                    if (cont == 10) this.cancel();
-                    Socket socket = new Socket(SERVER, PORT);
-                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                    out.println("Print," + Node.this.ip + "," + (cont - 1));
-                    out.close();
-                    socket.close();
-                    release();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }, 0, 500);
-
+        try {
+            Socket socket = new Socket(SERVER, PORT);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println("Print," + Node.this.ip);
+            out.close();
+            socket.close();
+            release();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     void cancel() {
@@ -79,20 +68,6 @@ public class Node {
 
         neighbors.stream().filter(neighbor -> (!neighbor.isAccess())).forEach(neighbor -> sendRequest(osn, neighbor.getIp()));
 
-        boolean responses = false;
-        boolean ok = true;
-
-        while (!responses) {
-            for (Neighbor neighbor: neighbors) {
-                if (!neighbor.isOk()) {
-                    ok = false;
-                    break;
-                }
-            }
-
-            if (ok) responses = true;
-        }
-
         waiting = false;
         using = true;
 
@@ -105,30 +80,25 @@ public class Node {
     }
 
     private void reply(int seq, Neighbor neighbor) {
+        boolean ourPriority;
         hsn = Math.max(hsn, seq);
+        ourPriority = (seq > osn) || ((seq == osn));
 
-        if (!using || !waiting) {
+        if (using || (waiting && ourPriority)) {
+            neighbor.setReply(true);
+        }
+
+        if (!(using || waiting) || (waiting && (!neighbor.isAccess()) && (!ourPriority))) {
             if (neighbor != null) {
                 neighbor.setAccess(false);
-                neighbor.setOk(true);
                 sendReply(neighbor);
             }
         }
 
-        if (using) {
-            neighbor.setReply(true);
-        }
-
-        if (waiting) {
-            if (osn < seq) {
-                if (neighbor != null) {
-                    neighbor.setAccess(false);
-                    neighbor.setOk(true);
-                    sendReply(neighbor);
-                }
-            } else {
-                neighbor.setReply(true);
-            }
+        if (waiting && neighbor.isAccess() && (!ourPriority)) {
+            neighbor.setAccess(false);
+            sendReply(neighbor);
+            sendRequest(osn, ip);
         }
     }
 

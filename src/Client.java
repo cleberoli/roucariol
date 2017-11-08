@@ -25,7 +25,6 @@ public class Client {
         while (true) {
             Scanner keyboard = new Scanner(System.in);
             System.out.println("Aperte enter para sortear um número, 'E' para sair");
-            System.out.println("Hosts: ");
             node.printAllHosts();
             String text = keyboard.nextLine();
 

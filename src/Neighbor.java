@@ -8,7 +8,6 @@ public class Neighbor {
         this.ip = ip;
         this.access = false;
         this.reply = false;
-        this.ok = false;
     }
 
     public String getIp() {
@@ -33,13 +32,5 @@ public class Neighbor {
 
     public void setReply(boolean reply) {
         this.reply = reply;
-    }
-
-    public boolean isOk() {
-        return ok;
-    }
-
-    public void setOk(boolean ok) {
-        this.ok = ok;
     }
 }
